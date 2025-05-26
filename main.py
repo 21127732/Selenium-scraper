@@ -11,6 +11,10 @@ def main():
 
     driver = init_driver(headless=headless_mode)
 
+
+    # https://limbuscompany.wiki.gg/wiki/Limbus_Company_Wiki
+    # mp-box-about
+    # About
     list_unique_links_from_section(
         driver,
         url="https://limbuscompany.wiki.gg/wiki/Limbus_Company_Wiki",
