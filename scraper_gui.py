@@ -41,21 +41,21 @@ class ScraperSection:
         self.name_var = tk.StringVar()
 
         self.remove_button = tk.Button(self.frame, text="➖", fg="red", width=2, command=remove_callback)
-        self.remove_button.grid(row=1, column=0, rowspan=3, padx=5, pady=10, sticky=tk.N)
+        self.remove_button.grid(row=1, column=0, rowspan=3, padx=(40, 10), pady=10, sticky=tk.N)
 
         ttk.Label(self.frame, text="🔗 URL:").grid(row=1, column=1, sticky=tk.W)
         self.url_entry = ttk.Entry(self.frame, width=60, textvariable=self.url_var)
-        self.url_entry.grid(row=1, column=2, padx=5)
+        self.url_entry.grid(row=1, column=2, padx=5, pady=3)
         self.url_entry.insert(0, "https://limbuscompany.wiki.gg/wiki/Limbus_Company_Wiki")
         self.url_entry.bind("<FocusOut>", self.update_section_options)
 
-        ttk.Label(self.frame, text="📁 Tên thư mục:").grid(row=2, column=1, sticky=tk.W)
-        self.name_entry = ttk.Entry(self.frame, width=60, textvariable=self.name_var)
-        self.name_entry.grid(row=2, column=2, padx=5)
-
-        ttk.Label(self.frame, text="📑 Section ID:").grid(row=3, column=1, sticky=tk.W)
+        ttk.Label(self.frame, text="📑 Section ID:").grid(row=2, column=1, sticky=tk.W)
         self.section_combobox = ttk.Combobox(self.frame, width=57, textvariable=self.section_var)
-        self.section_combobox.grid(row=3, column=2, padx=5)
+        self.section_combobox.grid(row=2, column=2, padx=5, pady=3)
+
+        ttk.Label(self.frame, text="📁 Tên thư mục:").grid(row=3, column=1, sticky=tk.W)
+        self.name_entry = ttk.Entry(self.frame, width=60, textvariable=self.name_var)
+        self.name_entry.grid(row=3, column=2, padx=5, pady=3)
 
     def update_section_options(self, event=None):
         url = self.url_var.get().strip()
@@ -81,7 +81,8 @@ class ScraperApp:
 
         ttk.Button(header_frame, text="← Quay lại", command=self.go_back).pack(side="left")
         self.add_button = tk.Button(header_frame, text="➕", width=3, command=self.add_section, fg="green")
-        self.add_button.pack(side="right")
+        self.add_button.pack(side="right", padx=(0, 30), pady=20)
+
 
         self.frame = ttk.Frame(root)
         self.frame.pack()
