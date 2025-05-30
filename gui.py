@@ -38,4 +38,7 @@ if __name__ == "__main__":
     root = tk.Tk()
     center_window(root, 400, 200)
     MainMenu(root)
+    root.protocol("WM_DELETE_WINDOW", root.quit)
     root.mainloop()
+
+

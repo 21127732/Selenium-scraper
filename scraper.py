@@ -39,11 +39,15 @@ def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
         print(f"🔗 Đang truy cập: {url}")
         driver.get(url)
 
-        if headless:
-            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, section_id)))
-        else:
-            wait_for_page(driver, 10)
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, section_id)))
+        try:
+            if headless:
+                WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, section_id)))
+            else:
+                wait_for_page(driver, 10)
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, section_id)))
+        except:
+            print(f"❌ Section ID '{section_id}' không tồn tại trong trang.")
+            return "invalid_section"
 
         section = driver.find_element(By.ID, section_id)
         link_elements = section.find_elements(By.TAG_NAME, "a")
@@ -54,6 +58,10 @@ def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
             text = link.get_attribute("title") or link.text.strip()
             if href and text and href not in unique_links:
                 unique_links[href] = text
+
+        if not unique_links:
+            print(f"⚠️ Section ID '{section_id}' có tồn tại nhưng không chứa liên kết nào.")
+            return "no_links"
 
         folder_path = os.path.join("output", name)
         os.makedirs(folder_path, exist_ok=True)
@@ -80,8 +88,12 @@ def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
                 wait_for_page(driver, wait_time=10)
                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, section_id)))
 
+        return "success"
+
     except Exception as e:
         print(f"❌ Lỗi tại mục {name}: {e}")
+        return "error"
+
 
 
 def quit_driver(driver):
