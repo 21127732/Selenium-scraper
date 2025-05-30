@@ -96,7 +96,7 @@ class ScraperApp:
         self.scrape_var = tk.BooleanVar(value=True)
 
         ttk.Checkbutton(self.checkbox_frame, text="Chạy chế độ headless", variable=self.headless_var, command=self.on_headless_toggle).pack(anchor="w", padx=30)
-        self.scrape_check = ttk.Checkbutton(self.checkbox_frame, text="Chụp ảnh từng link (scrape)", variable=self.scrape_var)
+        self.scrape_check = ttk.Checkbutton(self.checkbox_frame, text="Chụp ảnh từng link (photo mode)", variable=self.scrape_var)
         self.scrape_check.pack(anchor="w", padx=30)
 
         self.run_button = ttk.Button(root, text="🚀 Bắt đầu", command=self.run_all_sections)
@@ -135,7 +135,7 @@ class ScraperApp:
         if self.headless_var.get():
             self.scrape_var.set(False)
             self.scrape_check.config(state=tk.DISABLED)
-            self.log_text.insert(tk.END, "⚠️ Scrape mode tự động tắt vì đang bật chế độ Headless.")
+            self.log_text.insert(tk.END, "⚠️ Photo mode tự động tắt vì đang bật chế độ Headless.")
         else:
             self.scrape_check.config(state=tk.NORMAL)
 
