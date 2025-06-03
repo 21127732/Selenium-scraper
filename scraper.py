@@ -10,6 +10,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+import tkinter as tk
+import threading
 
 
 def init_driver(headless=True):
@@ -33,25 +35,47 @@ def wait_for_page(driver, wait_time=10):
         lambda d: d.execute_script("return document.readyState") == "complete"
     )
 
+def wait_for_user_continue(parent_window):
+    proceed_event = threading.Event()
 
-def list_unique_links_from_section(driver, url: str, section_id: str, name: str, headless, scrape):
+    def proceed():
+        proceed_event.set()
+        popup.destroy()
+
+    popup = tk.Toplevel(parent_window)
+    popup.title("Tour Mode")
+    popup.geometry("350x120")
+    popup.attributes("-topmost", True)
+    popup.resizable(False, False)
+
+    label = tk.Label(popup, text="🧭 Tour Mode\nẤn Enter hoặc nút dưới để tiếp tục", font=("Arial", 11))
+    label.pack(pady=10)
+
+    btn = tk.Button(popup, text="Tiếp tục", command=proceed)
+    btn.pack(pady=5)
+
+    popup.bind("<Return>", lambda e: proceed())
+
+    popup.grab_set()
+    popup.wait_window()
+
+    proceed_event.wait()
+
+
+def list_unique_links_from_section(driver, url: str, section_id: str, name: str, headless=True, photo=False, tour=False, parent_window=None):
     try:
         print(f"🔗 Đang truy cập: {url}")
         driver.get(url)
+        wait_for_page(driver)
 
+        # Tìm section theo ID
         try:
-            if headless:
-                WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, section_id)))
-            else:
-                wait_for_page(driver, 10)
-                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, section_id)))
-        except:
-            print(f"❌ Section ID '{section_id}' không tồn tại trong trang.")
+            section = driver.find_element(By.ID, section_id)
+        except Exception:
             return "invalid_section"
 
-        section = driver.find_element(By.ID, section_id)
+        # Tìm và lọc các liên kết duy nhất
         link_elements = section.find_elements(By.TAG_NAME, "a")
-
         unique_links = {}
         for link in link_elements:
             href = link.get_attribute("href")
@@ -60,38 +84,48 @@ def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
                 unique_links[href] = text
 
         if not unique_links:
-            print(f"⚠️ Section ID '{section_id}' có tồn tại nhưng không chứa liên kết nào.")
             return "no_links"
 
-        folder_path = os.path.join("output", name)
+        # Tạo thư mục chứa kết quả
+        output_base = "Scrape Output"
+        folder_path = os.path.join(output_base, name)
         os.makedirs(folder_path, exist_ok=True)
-        file_path = os.path.join(folder_path, f"{name}.csv")
 
-        with open(file_path, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            for idx, (_, text) in enumerate(unique_links.items(), 1):
-                writer.writerow([f"{idx}. {text}"])
+        # Ghi CSV
+        csv_path = os.path.join(folder_path, f"{name}.csv")
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["STT", "Tên Mục", "URL"])
+            for idx, (href, text) in enumerate(unique_links.items(), 1):
+                writer.writerow([idx, text, href])
 
-        print(f"📁 Đã lưu {len(unique_links)} mục vào file: {file_path}")
+        print(f"📁 Đã lưu {len(unique_links)} liên kết vào {csv_path}")
 
-        if scrape:
+        # Nếu có chụp ảnh / tour
+        if photo or tour:
             for href, text in unique_links.items():
-                filename = sanitize_filename(text) + ".png"
-                image_path = os.path.join(folder_path, filename)
-                print(f"📸 Đang vào {text} → {href}")
+                print(f"🌐 Đang mở {text}")
                 driver.get(href)
-                wait_for_page(driver, wait_time=10)
-                time.sleep(3)
-                driver.save_screenshot(image_path)
-                print(f"✅ Đã chụp hình: {image_path}")
+                wait_for_page(driver)
+                time.sleep(1)
+
+                if tour and parent_window:
+                    wait_for_user_continue(parent_window)
+
+                if photo:
+                    img_name = sanitize_filename(text) + ".png"
+                    img_path = os.path.join(folder_path, img_name)
+                    driver.save_screenshot(img_path)
+                    print(f"✅ Đã chụp ảnh {img_path}")
+
                 driver.get(url)
-                wait_for_page(driver, wait_time=10)
-                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, section_id)))
+                wait_for_page(driver)
+
 
         return "success"
 
     except Exception as e:
-        print(f"❌ Lỗi tại mục {name}: {e}")
+        print(f"❌ Lỗi xảy ra: {e}")
         return "error"
 
 

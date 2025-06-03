@@ -74,6 +74,7 @@ class ScraperApp:
         self.parent_root = parent_root
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
+
         self.sections = []
 
         header_frame = ttk.Frame(root)
@@ -96,8 +97,24 @@ class ScraperApp:
         self.scrape_var = tk.BooleanVar(value=True)
 
         ttk.Checkbutton(self.checkbox_frame, text="Chạy chế độ headless", variable=self.headless_var, command=self.on_headless_toggle).pack(anchor="w", padx=30)
-        self.scrape_check = ttk.Checkbutton(self.checkbox_frame, text="Chụp ảnh từng link (photo mode)", variable=self.scrape_var)
+        self.scrape_check = ttk.Checkbutton(
+            self.checkbox_frame, 
+            text="Chụp ảnh từng link (photo mode)", 
+            variable=self.scrape_var,
+            command=self.on_photo_toggle
+            )
         self.scrape_check.pack(anchor="w", padx=30)
+
+        self.tour_var = tk.BooleanVar(value=False)
+
+        self.tour_check = ttk.Checkbutton(
+            self.checkbox_frame,
+            text="Dừng từng link (tour mode)",
+            variable=self.tour_var,
+            command=self.on_tour_toggle
+        )
+        self.tour_check.pack(anchor="w", padx=30)
+
 
         self.run_button = ttk.Button(root, text="🚀 Bắt đầu", command=self.run_all_sections)
         self.run_button.pack(pady=10)
@@ -133,39 +150,52 @@ class ScraperApp:
 
     def on_headless_toggle(self):
         if self.headless_var.get():
-            self.scrape_var.set(False)
             self.scrape_check.config(state=tk.DISABLED)
-            self.log_text.insert(tk.END, "⚠️ Photo mode tự động tắt vì đang bật chế độ Headless.")
+            self.tour_check.config(state=tk.DISABLED)
         else:
             self.scrape_check.config(state=tk.NORMAL)
+            self.tour_check.config(state=tk.NORMAL)
+
+    def on_tour_toggle(self):
+        if self.tour_var.get():
+            self.scrape_var.set(False)  
+
+    def on_photo_toggle(self):
+        if self.scrape_var.get():
+            self.tour_var.set(False)
+
 
     def run_all_sections(self):
         self.log_text.delete(1.0, tk.END)
         headless = self.headless_var.get()
         scrape = self.scrape_var.get()
+        tour_mode = self.tour_var.get()
+        parent_window= self.root
 
         for i, section in enumerate(self.sections, 1):
             url = section.url_var.get().strip()
             section_id = section.section_var.get().strip()
             name = section.name_var.get().strip()
+            
 
             if not url or not section_id or not name:
-                self.log_text.insert(tk.END, f"❌ Mục #{i} thiếu thông tin. Vui lòng điền đầy đủ.")
+                self.log_text.insert(tk.END, f"❌ Mục #{i} thiếu thông tin. Vui lòng điền đầy đủ.\n")
                 continue
 
-            self.log_text.insert(tk.END, f"🔍 Mục #{i}: Bắt đầu scraping {url} - #{section_id}")
+            self.log_text.insert(tk.END, f"🔍 Mục #{i}: Bắt đầu scraping {url} - #{section_id}\n")
             driver = init_driver(headless)
-            result = list_unique_links_from_section(driver, url, section_id, name, headless, scrape)
+            result = list_unique_links_from_section(driver, url, section_id, name, headless, scrape, tour_mode, parent_window)
+
             quit_driver(driver)
 
             if result == "invalid_section":
-                self.log_text.insert(tk.END, f"❌ Không tìm thấy Section ID '{section_id}' trong trang.")
+                self.log_text.insert(tk.END, f"❌ Không tìm thấy Section ID '{section_id}' trong trang.\n")
             elif result == "no_links":
-                self.log_text.insert(tk.END, f"⚠️ Section ID '{section_id}' tồn tại nhưng không có liên kết nào.")
+                self.log_text.insert(tk.END, f"⚠️ Section ID '{section_id}' tồn tại nhưng không có liên kết nào.\n")
             elif result == "success":
-                self.log_text.insert(tk.END, f"✅ Mục #{i} hoàn tất scraping!")
+                self.log_text.insert(tk.END, f"✅ Mục #{i} hoàn tất scraping!\n")
             else:
-                self.log_text.insert(tk.END, f"❌ Đã xảy ra lỗi ở mục #{i}.")
+                self.log_text.insert(tk.END, f"❌ Đã xảy ra lỗi ở mục #{i}.\n")
 
     def go_back(self):
         self.root.destroy()
