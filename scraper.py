@@ -2,16 +2,15 @@
 import csv
 import os
 import time
-from urllib.parse import urlparse, unquote
+import threading
+from urllib.parse import unquote
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 import tkinter as tk
-import threading
 
 
 def init_driver(headless=True):
@@ -22,8 +21,7 @@ def init_driver(headless=True):
     chrome_options.add_argument("--start-maximized")
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    return driver
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
 
 def sanitize_filename(text: str) -> str:
@@ -35,46 +33,64 @@ def wait_for_page(driver, wait_time=10):
         lambda d: d.execute_script("return document.readyState") == "complete"
     )
 
-def wait_for_user_continue(parent_window):
-    proceed_event = threading.Event()
 
-    def proceed():
-        proceed_event.set()
-        popup.destroy()
-
-    popup = tk.Toplevel(parent_window)
+def create_tour_popup(root):
+    popup = tk.Toplevel(root)
     popup.title("Tour Mode")
-    popup.geometry("350x120")
+    popup.geometry("400x100")
     popup.attributes("-topmost", True)
     popup.resizable(False, False)
+    popup.protocol("WM_DELETE_WINDOW", lambda: None)
 
-    label = tk.Label(popup, text="🧭 Tour Mode\nẤn Enter hoặc nút dưới để tiếp tục", font=("Arial", 11))
-    label.pack(pady=10)
-
-    btn = tk.Button(popup, text="Tiếp tục", command=proceed)
-    btn.pack(pady=5)
-
-    popup.bind("<Return>", lambda e: proceed())
-
-    popup.grab_set()
-    popup.wait_window()
-
-    proceed_event.wait()
+    label = tk.Label(
+        popup,
+        text="🧭 Tour Mode đang chạy\nẤn Enter trong trình duyệt để tiếp tục",
+        font=("Arial", 11)
+    )
+    label.pack(pady=20)
+    return popup
 
 
-def list_unique_links_from_section(driver, url: str, section_id: str, name: str, headless=True, photo=False, tour=False, parent_window=None):
+def inject_browser_enter_handler(driver):
+    driver.execute_script("""
+        window.continueTour = false;
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                window.continueTour = true;
+            }
+        });
+    """)
+
+
+def wait_for_enter_in_browser(driver, timeout=120):
+    driver.execute_script("""
+        window.continueTour = false;
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                window.continueTour = true;
+            }
+        }, { once: true });
+    """)
+    for _ in range(timeout * 2):
+        flag = driver.execute_script("return window.continueTour === true")
+        if flag:
+            return
+        time.sleep(0.5)
+
+
+
+def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
+                                    headless=True, photo=False, tour=False, parent_window=None):
     try:
         print(f"🔗 Đang truy cập: {url}")
         driver.get(url)
         wait_for_page(driver)
 
-        # Tìm section theo ID
         try:
             section = driver.find_element(By.ID, section_id)
         except Exception:
             return "invalid_section"
 
-        # Tìm và lọc các liên kết duy nhất
         link_elements = section.find_elements(By.TAG_NAME, "a")
         unique_links = {}
         for link in link_elements:
@@ -86,12 +102,10 @@ def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
         if not unique_links:
             return "no_links"
 
-        # Tạo thư mục chứa kết quả
         output_base = "Scrape Output"
         folder_path = os.path.join(output_base, name)
         os.makedirs(folder_path, exist_ok=True)
 
-        # Ghi CSV
         csv_path = os.path.join(folder_path, f"{name}.csv")
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -101,16 +115,33 @@ def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
 
         print(f"📁 Đã lưu {len(unique_links)} liên kết vào {csv_path}")
 
-        # Nếu có chụp ảnh / tour
+        # Hiển thị popup duy nhất trong Tour Mode
+        popup = None
+        if tour and parent_window:
+            popup = tk.Toplevel(parent_window)
+            popup.title("Tour Mode")
+            popup.geometry("400x100")
+            popup.attributes("-topmost", True)
+            popup.resizable(False, False)
+            popup.protocol("WM_DELETE_WINDOW", lambda: None)
+
+            label = tk.Label(
+                popup,
+                text="🧭 Tour Mode đang chạy\nẤn Enter trong trình duyệt để tiếp tục",
+                font=("Arial", 11)
+            )
+            label.pack(pady=20)
+            popup.update()
+
+        # Bắt đầu chạy từng link
         if photo or tour:
+            inject_browser_enter_handler(driver)
+
             for href, text in unique_links.items():
                 print(f"🌐 Đang mở {text}")
                 driver.get(href)
                 wait_for_page(driver)
-                time.sleep(1)
-
-                if tour and parent_window:
-                    wait_for_user_continue(parent_window)
+                time.sleep(1.5)
 
                 if photo:
                     img_name = sanitize_filename(text) + ".png"
@@ -118,17 +149,23 @@ def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
                     driver.save_screenshot(img_path)
                     print(f"✅ Đã chụp ảnh {img_path}")
 
+                if tour:
+                    wait_for_enter_in_browser(driver)
+
                 driver.get(url)
                 wait_for_page(driver)
 
+        if popup:
+            try:
+                popup.destroy()
+            except:
+                pass
 
         return "success"
 
     except Exception as e:
         print(f"❌ Lỗi xảy ra: {e}")
         return "error"
-
-
 
 def quit_driver(driver):
     driver.quit()
