@@ -65,8 +65,8 @@ class AnalyzeApp:
             self.log_text.insert(tk.END, f"❌ Lỗi: {result[7:]}")
             return
 
-        if isinstance(result, list) and result:
-            self.log_text.insert(tk.END, f"✅ Tìm thấy {len(result)} section ID. Đang lưu vào file...\n\n")
+        if isinstance(result, dict) and result.get("sections"):
+            self.log_text.insert(tk.END, f"✅ Tìm thấy {len(result["sections"])} section ID. Đang lưu vào file...\n\n")
 
             output_folder = "Analyze Output"
             os.makedirs(output_folder, exist_ok=True)
@@ -78,7 +78,7 @@ class AnalyzeApp:
                 writer.writerow(["URL", url])
                 writer.writerow(["STT", "Section ID"])
                 seen = set()
-                for i, sid in enumerate(result, 1):
+                for i, sid in enumerate(result["sections"], 1):
                     if sid not in seen:
                         writer.writerow([i, sid])
                         seen.add(sid)

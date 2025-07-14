@@ -1,7 +1,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-from scraper import init_driver, list_unique_links_from_section, quit_driver
+from scraper import init_driver, list_unique_links_from_section, scrape_all_links_from_page, quit_driver
 import os
 import csv
 
@@ -12,6 +12,23 @@ def center_window(window, width=780, height=520):
     x = int((screen_width - width) / 2)
     y = int((screen_height - height) / 2)
     window.geometry(f"{width}x{height}+{x}+{y}")
+
+
+def load_type_from_csv(url):
+    folder = "Analyze Output"
+    if not os.path.exists(folder):
+        return "wiki"
+    for file in os.listdir(folder):
+        if file.endswith(".csv"):
+            with open(os.path.join(folder, file), encoding="utf-8") as f:
+                reader = csv.reader(f)
+                rows = list(reader)
+                if rows and rows[0][0] == "URL" and rows[0][1].strip() == url:
+                    for row in rows:
+                        if row[0] == "TYPE":
+                            return row[1].strip()
+    return "wiki"
+
 
 def load_section_ids_from_analyze(url):
     folder = "Analyze Output"
@@ -170,21 +187,32 @@ class ScraperApp:
         headless = self.headless_var.get()
         scrape = self.scrape_var.get()
         tour_mode = self.tour_var.get()
-        parent_window= self.root
+        parent_window = self.root
 
         for i, section in enumerate(self.sections, 1):
             url = section.url_var.get().strip()
             section_id = section.section_var.get().strip()
             name = section.name_var.get().strip()
-            
 
-            if not url or not section_id or not name:
+            page_type = load_type_from_csv(url)
+
+            if not url or not name:
                 self.log_text.insert(tk.END, f"❌ Mục #{i} thiếu thông tin. Vui lòng điền đầy đủ.\n")
                 continue
 
-            self.log_text.insert(tk.END, f"🔍 Mục #{i}: Bắt đầu scraping {url} - #{section_id}\n")
             driver = init_driver(headless)
-            result = list_unique_links_from_section(driver, url, section_id, name, headless, scrape, tour_mode, parent_window)
+
+            if page_type == "business":
+                self.log_text.insert(tk.END, f"🔍 Mục #{i}: Trang doanh nghiệp — lấy toàn bộ liên kết từ trang chính.\n")
+                result = scrape_all_links_from_page(driver, url, name)
+            else:
+                if not section_id:
+                    self.log_text.insert(tk.END, f"❌ Mục #{i} thiếu Section ID.\n")
+                    quit_driver(driver)
+                    continue
+
+                self.log_text.insert(tk.END, f"🔍 Mục #{i}: Bắt đầu scraping {url} - #{section_id}\n")
+                result = list_unique_links_from_section(driver, url, section_id, name, headless, scrape, tour_mode, parent_window)
 
             quit_driver(driver)
 

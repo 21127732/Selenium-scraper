@@ -169,3 +169,33 @@ def list_unique_links_from_section(driver, url: str, section_id: str, name: str,
 
 def quit_driver(driver):
     driver.quit()
+
+
+def scrape_all_links_from_page(driver, url, name="output"):
+    from urllib.parse import urlparse
+
+    driver.get(url)
+    wait_for_page(driver)
+
+    base_domain = urlparse(url).netloc
+
+    links = driver.find_elements(By.TAG_NAME, "a")
+    unique_links = {}
+    for link in links:
+        href = link.get_attribute("href")
+        text = link.text.strip()
+        if href and base_domain in href and not href.startswith("javascript"):
+            unique_links[href] = text or href
+
+    folder_path = os.path.join("Scrape Output", name)
+    os.makedirs(folder_path, exist_ok=True)
+
+    csv_path = os.path.join(folder_path, f"{name}.csv")
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["STT", "Tên Mục", "URL"])
+        for i, (href, text) in enumerate(unique_links.items(), 1):
+            writer.writerow([i, text, href])
+
+    print(f"✅ Đã lưu {len(unique_links)} link từ toàn trang tại {csv_path}")
+    return "success"
